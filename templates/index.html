@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polling System</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #poll-section { margin: 20px; }
+        #poll-options { margin-top: 20px; }
+        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        #message { font-weight: bold; color: green; margin-top: 10px; }
+        #admin-section { margin-top: 20px; display: flex; align-items: center; }
+        #admin-password { margin-right: 10px; }
+        #results { display: none; margin-top: 20px; }
+        #results-table { border-collapse: collapse; width: 50%; }
+        #results-table th, #results-table td { border: 1px solid black; padding: 8px; text-align: left; }
+        #winner { font-weight: bold; color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Polling System</h1>
+
+    <!-- Poll Section -->
+    <div id="poll-section">
+        <h3>Vote for the Poll</h3>
+        <div id="poll-question"></div>
+        <div id="poll-options"></div>
+        <input type="text" id="user-token" placeholder="Enter your token" required>
+        <button onclick="vote()">Submit Vote</button>
+        <p id="vote-msg"></p>
+    </div>
+
+    <!-- Thank You Section (hidden by default) -->
+    <div id="thank-you-section" style="display: none; margin: 20px;">
+        <h3 id="thank-you-msg"></h3>
+    </div>
+
+    <!-- Admin Section -->
+    <div id="admin-section">
+        <input type="password" id="admin-password" placeholder="Enter admin password">
+        <button onclick="getResults()">View Results</button>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results">
+        <h3>Poll Results</h3>
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Option</th>
+                    <th>Vote Count</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <p id="winner"></p>
+    </div>
+
+    <script>
+        const currentPollId = 1;
+
+        // Load the poll when the page is loaded
+        async function loadPoll() {
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/polls/${currentPollId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById("poll-question").textContent = "Poll not found!";
+                    return;
+                }
+
+                document.getElementById("poll-question").textContent = data.question;
+
+                const optionsHTML = data.options.map(option =>
+                    `<label>
+                        <input type="radio" name="option" value="${option.id}"> ${option.option_text}
+                    </label><br>`).join(" ");
+
+                document.getElementById("poll-options").innerHTML = optionsHTML;
+            } catch (error) {
+                document.getElementById("poll-question").textContent = "Error loading poll!";
+                console.error(error);
+            }
+        }
+
+        // Function to submit vote
+        async function vote() {
+            const optionId = document.querySelector('input[name="option"]:checked')?.value;
+            const token = document.getElementById("user-token").value;
+
+            if (!optionId) {
+                document.getElementById("vote-msg").textContent = "Please select an option!";
+                return;
+            }
+
+            try {
+                const response = await fetch("http://127.0.0.1:5000/vote", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token, option_id: optionId })
+                });
+
+                if (!response.ok) throw new Error("You have already voted or there is an issue!");
+
+                const data = await response.json();
+                showThankYouMessage(data.message);
+            } catch (error) {
+                document.getElementById("vote-msg").textContent = error.message;
+            }
+        }
+
+        // Show Thank You message after vote
+        function showThankYouMessage(message) {
+            document.getElementById("poll-section").style.display = "none";
+            document.getElementById("thank-you-section").style.display = "block";
+            document.getElementById("thank-you-msg").textContent = message;
+
+            setTimeout(() => {
+                document.getElementById("poll-section").style.display = "block";
+                document.getElementById("thank-you-section").style.display = "none";
+            }, 10000);
+        }
+
+        // Function to fetch and display poll results for admin
+        async function getResults() {
+            const password = document.getElementById("admin-password").value;
+
+            if (password === "") {
+                alert("Please enter the password!");
+                return;
+            }
+
+            await fetch(`http://127.0.0.1:5000/polls/1/results`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    return;
+                }
+
+                const resultsTable = document.getElementById("results-table").querySelector("tbody");
+                resultsTable.innerHTML = "";
+
+                let maxVotes = 0;
+                let winner = "";
+
+                data.results.forEach(option => {
+                    resultsTable.innerHTML += `
+                        <tr>
+                            <td>${option.option_text}</td>
+                            <td>${option.vote_count}</td>
+                        </tr>
+                    `;
+                    if (option.vote_count > maxVotes) {
+                        maxVotes = option.vote_count;
+                        winner = option.option_text;
+                    }
+                });
+
+                document.getElementById("winner").textContent = `Winner: ${winner}`;
+                document.getElementById("results").style.display = "block";
+
+
+                setTimeout(() => {
+                    document.getElementById("results").style.display = "none";
+                }, 10000);  // 10000 milliseconds = 10 seconds
+            })
+            .catch(error => {
+                console.error("Error fetching results:", error);
+                alert("Error fetching results!");
+            });
+        }
+
+        // Load poll data when page is loaded
+        window.onload = loadPoll;
+    </script>
+</body>
+</html>
