@@ -1,26 +1,33 @@
 from flask import Flask, request, jsonify, render_template
+from dotenv import load_dotenv
 import psycopg2
 import os
 
 # Initialize Flask app
 app = Flask(__name__)
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Environment variable for admin password
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', '****')  # Set this environment variable securely
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', '****')  # Default value is a placeholder
 
 # Database connection function
 def get_db_connection():
     try:
         conn = psycopg2.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            database=os.getenv('DB_NAME', 'ps_project'),  # Use environment variable for database name
-            user=os.getenv('DB_USER', 'postgres'),       # Use environment variable for username
-            password=os.getenv('DB_PASSWORD', 'pkm@2003')  # Use environment variable for password
+            host=os.getenv('DB_HOST', 'localhost'),           # Get DB host from env
+            database=os.getenv('DB_NAME', 'ps_project'),     # Get DB name from env
+            user=os.getenv('DB_USER', 'postgres'),           # Get DB user from env
+            password=os.getenv('DB_PASSWORD')                # Get DB password from env
         )
         return conn
     except psycopg2.OperationalError as e:
         print(f"Error connecting to database: {e}")
         return None
+    
+
+
 
 # Poll creation route
 @app.route('/create_poll', methods=['POST'])
@@ -132,7 +139,7 @@ def get_poll_results(poll_id):
         conn.close()
         return jsonify({"message": "Poll not found!"}), 404
 
-    cur.execute('''
+    cur.execute(''' 
         SELECT option_text, COUNT(votes.id) AS vote_count
         FROM options
         LEFT JOIN votes ON options.id = votes.option_id
@@ -162,4 +169,3 @@ def index():
 # Run the app
 if __name__ == "__main__":
     app.run(debug=True)
-    
