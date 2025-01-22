@@ -1,5 +1,9 @@
-# Use an official Python runtime as a base image
 FROM python:3.9-slim
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y python3-dev libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
 WORKDIR /app
@@ -7,14 +11,8 @@ WORKDIR /app
 # Copy the requirements.txt first to leverage Docker's caching ability
 COPY requirements.txt /app/
 
-# Install PostgreSQL development libraries
-RUN apt-get update && apt-get install -y libpq-dev python3-dev
-
-# Install Python dependencies
+# Install the dependencies from the requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-
-
-
 
 # Copy the rest of your application code to the container
 COPY . /app/
